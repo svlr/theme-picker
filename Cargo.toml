@@ -1,0 +1,27 @@
+[package]
+name = "theme-picker"
+version = "0.1.0"
+edition = "2024"
+authors = ["SvlR"]
+description = "An ultra-fast, async GTK4 wallpaper and theme switcher"
+readme = "README.md"
+repository = "https://github.com/SvlR/theme-picker"
+license = "GPL-3.0-only"
+keywords = ["hyprland", "gtk4", "wallpaper", "theme", "matugen"]
+categories = ["command-line-utilities", "visualization"]
+
+[dependencies]
+gtk4 = { version = "0.9", features = ["v4_10"] }
+glib = "0.20"
+walkdir = "2.5"
+sha2 = "0.10"
+serde = { version = "1.0", features = ["derive"] }
+toml = "0.8"
+async-channel = "2.3"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
