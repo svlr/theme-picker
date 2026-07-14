@@ -1,6 +1,6 @@
 [package]
 name = "theme-picker"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2024"
 authors = ["SvlR"]
 description = "An ultra-fast, async GTK4 wallpaper and theme switcher"
