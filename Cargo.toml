@@ -1,6 +1,6 @@
 [package]
 name = "theme-picker"
-version = "1.0.0"
+version = "2.0.0"
 edition = "2024"
 authors = ["SvlR"]
 description = "An ultra-fast, async GTK4 wallpaper and theme switcher"
@@ -18,6 +18,7 @@ sha2 = "0.10"
 serde = { version = "1.0", features = ["derive"] }
 toml = "0.8"
 async-channel = "2.3"
+libvips = "2.3.0" # <-- Наш новый мост к C-библиотеке libvips
 
 [profile.release]
 opt-level = 3
