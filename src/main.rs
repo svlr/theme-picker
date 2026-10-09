@@ -1,3 +1,11 @@
+#[macro_export]
+macro_rules! elog {
+    ($($arg:tt)*) => {{
+        use std::io::Write as _;
+        let _ = writeln!(std::io::stderr(), $($arg)*);
+    }};
+}
+
 mod backend;
 mod ui;
 
@@ -51,7 +59,7 @@ fn main() {
         libvips::VipsApp::new("theme-picker", false).expect("failed to initialize libvips runtime");
 
     if let Err(e) = ffmpeg_next::init() {
-        eprintln!(
+        crate::elog!(
             "Warning: failed to initialize ffmpeg runtime: {e}. \
              Video wallpaper previews will be unavailable."
         );

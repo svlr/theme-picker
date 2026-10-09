@@ -130,18 +130,19 @@ pub type SharedState = Rc<RefCell<AppState>>;
 
 pub fn build_ui(app: &Application) {
     if gtk4::gdk::Display::default().is_none() {
-        eprintln!("Error: GDK cannot open display. Are you running in a non-GUI environment?");
+        crate::elog!("Error: GDK cannot open display. Are you running in a non-GUI environment?");
         std::process::exit(1);
     }
 
     let config = Rc::new(load_config());
 
     if let Err(e) = std::fs::create_dir_all(&config.thumb_cache_dir) {
-        eprintln!(
+        crate::elog!(
             "Warning: Failed to create thumbnail cache directory at {:?}: {}",
-            config.thumb_cache_dir, e
+            config.thumb_cache_dir,
+            e
         );
-        eprintln!("Previews will not be cached between sessions.");
+        crate::elog!("Previews will not be cached between sessions.");
     }
 
     let (job_tx, result_rx) = spawn_thumbnail_worker(config.thumb_cache_dir.clone());
@@ -690,7 +691,7 @@ fn populate_page(state: &SharedState) {
             if !s.pending_jobs.contains(&path) {
                 s.pending_jobs.insert(path.clone());
                 if let Err(e) = job_tx.send(path.clone()) {
-                    eprintln!("Error: Failed to queue thumbnail job for {:?}: {}", path, e);
+                    crate::elog!("Error: Failed to queue thumbnail job for {:?}: {}", path, e);
                 }
             }
             s.thumb_map.insert(path, cell_idx);
@@ -831,6 +832,6 @@ fn load_css() {
             gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
         );
     } else {
-        eprintln!("Warning: Could not style application. No active GDK Display found.");
+        crate::elog!("Warning: Could not style application. No active GDK Display found.");
     }
 }

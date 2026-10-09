@@ -1,4 +1,4 @@
-use std::io::ErrorKind;
+use std::io::{self, ErrorKind, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::mpsc;
@@ -58,8 +58,10 @@ pub fn load_config() -> Config {
     match try_load_config() {
         Ok(cfg) => cfg,
         Err(e) => {
-            eprintln!("Error: {}", e);
-            eprintln!("Please make sure config.toml exists and is valid in your config directory.");
+            crate::elog!("Error: {}", e);
+            crate::elog!(
+                "Please make sure config.toml exists and is valid in your config directory."
+            );
             std::process::exit(1);
         }
     }
@@ -69,11 +71,11 @@ pub fn load_config() -> Config {
 
 pub fn scan_dir(dir: &Path, include_video: bool) -> Vec<PathBuf> {
     if !dir.exists() {
-        eprintln!("Error: Wallpaper directory does not exist: {:?}", dir);
+        crate::elog!("Error: Wallpaper directory does not exist: {:?}", dir);
         return Vec::new();
     }
     if !dir.is_dir() {
-        eprintln!("Error: Wallpaper path is not a directory: {:?}", dir);
+        crate::elog!("Error: Wallpaper path is not a directory: {:?}", dir);
         return Vec::new();
     }
 
@@ -83,7 +85,7 @@ pub fn scan_dir(dir: &Path, include_video: bool) -> Vec<PathBuf> {
         .filter_map(|entry| match entry {
             Ok(e) => Some(e),
             Err(e) => {
-                eprintln!("Warning: Failed to read folder entry in {:?}: {}", dir, e);
+                crate::elog!("Warning: Failed to read folder entry in {:?}: {}", dir, e);
                 None
             }
         })
@@ -128,18 +130,20 @@ pub fn load_favorites(wallpaper_dir: &Path, legacy_cache_dir: &Path) -> Vec<Path
             Ok(text) => match toml::from_str::<FavoritesFile>(&text) {
                 Ok(f) => f.wallpapers,
                 Err(e) => {
-                    eprintln!(
+                    crate::elog!(
                         "Error: Invalid TOML in favorites file {:?}: {}",
-                        toml_path, e
+                        toml_path,
+                        e
                     );
-                    eprintln!("Favorites will appear empty; the file is left untouched.");
+                    crate::elog!("Favorites will appear empty; the file is left untouched.");
                     return Vec::new();
                 }
             },
             Err(e) => {
-                eprintln!(
+                crate::elog!(
                     "Error: Failed to read favorites file {:?}: {}",
-                    toml_path, e
+                    toml_path,
+                    e
                 );
                 return Vec::new();
             }
@@ -162,7 +166,7 @@ pub fn load_favorites(wallpaper_dir: &Path, legacy_cache_dir: &Path) -> Vec<Path
             if p.is_file() {
                 true
             } else {
-                eprintln!(
+                crate::elog!(
                     "Warning: Favorite wallpaper no longer exists, skipping: {:?}",
                     p
                 );
@@ -181,9 +185,10 @@ fn migrate_legacy_favorites(legacy_path: &Path, wallpaper_dir: &Path) -> Vec<Str
         Ok(t) => t,
         Err(ref e) if e.kind() == ErrorKind::NotFound => return Vec::new(),
         Err(e) => {
-            eprintln!(
+            crate::elog!(
                 "Warning: Failed to read legacy favorites {:?}: {}",
-                legacy_path, e
+                legacy_path,
+                e
             );
             return Vec::new();
         }
@@ -200,7 +205,7 @@ fn migrate_legacy_favorites(legacy_path: &Path, wallpaper_dir: &Path) -> Vec<Str
         return Vec::new();
     }
 
-    eprintln!(
+    crate::elog!(
         "Info: Migrating {} favorite(s) from {:?} to {:?}",
         paths.len(),
         legacy_path,
@@ -211,9 +216,10 @@ fn migrate_legacy_favorites(legacy_path: &Path, wallpaper_dir: &Path) -> Vec<Str
 
     let backup = legacy_path.with_extension("txt.bak");
     if let Err(e) = std::fs::rename(legacy_path, &backup) {
-        eprintln!(
+        crate::elog!(
             "Warning: Failed to rename legacy favorites to {:?}: {}",
-            backup, e
+            backup,
+            e
         );
     }
 
@@ -228,7 +234,7 @@ pub fn save_favorites(wallpaper_dir: &Path, list: &[PathBuf]) {
 
     if let Some(dir) = path.parent() {
         if let Err(e) = std::fs::create_dir_all(dir) {
-            eprintln!("Error: Failed to create data directory {:?}: {}", dir, e);
+            crate::elog!("Error: Failed to create data directory {:?}: {}", dir, e);
             return;
         }
     }
@@ -246,13 +252,13 @@ pub fn save_favorites(wallpaper_dir: &Path, list: &[PathBuf]) {
     let text = match toml::to_string_pretty(&file) {
         Ok(t) => t,
         Err(e) => {
-            eprintln!("Error: Failed to serialize favorites: {}", e);
+            crate::elog!("Error: Failed to serialize favorites: {}", e);
             return;
         }
     };
 
     if let Err(e) = std::fs::write(&path, text) {
-        eprintln!("Error: Failed to save favorites to {:?}: {}", path, e);
+        crate::elog!("Error: Failed to save favorites to {:?}: {}", path, e);
     }
 }
 
@@ -423,7 +429,7 @@ pub fn apply_theme(wallpaper: &Path, config: &Config) {
 
     if VIDEO_EXTS.contains(&ext.as_str()) {
         if !config.drivers.video {
-            eprintln!(
+            crate::elog!(
                 "Warning: Video wallpaper selected, but drivers.video is set to false in config: {:?}",
                 wallpaper
             );
@@ -431,24 +437,35 @@ pub fn apply_theme(wallpaper: &Path, config: &Config) {
         }
         let poster = ensure_poster(wallpaper, &config.thumb_cache_dir);
         match &poster {
-            Ok(p) => println!("theme-picker: video poster for {:?} -> {:?}", wallpaper, p),
-            Err(e) => eprintln!(
-                "Warning: could not generate poster for {:?}: {} (hook gets video path only)",
-                wallpaper, e
-            ),
+            Ok(p) => {
+                let _ = writeln!(
+                    io::stdout(),
+                    "theme-picker: video poster for {:?} -> {:?}",
+                    wallpaper,
+                    p
+                );
+            }
+            Err(e) => {
+                let _ = writeln!(
+                    io::stderr(),
+                    "Warning: could not generate poster for {:?}: {} (hook gets video path only)",
+                    wallpaper,
+                    e
+                );
+            }
         }
 
         match config.hooks.video.as_deref() {
             Some(hook) => spawn_hook(hook, wallpaper, poster.as_deref().ok()),
             Option::None => {
-                eprintln!("Warning: drivers.video=true but hooks.video path is not configured");
+                crate::elog!("Warning: drivers.video=true but hooks.video path is not configured");
             }
         }
         return;
     }
 
     if !config.drivers.image {
-        eprintln!(
+        crate::elog!(
             "Warning: Image wallpaper selected, but drivers.image is set to false in config: {:?}",
             wallpaper
         );
@@ -467,9 +484,11 @@ fn spawn_hook(hook: &Path, wallpaper: &Path, extra: Option<&Path>) {
         cmd.arg(extra);
     }
     if let Err(e) = cmd.spawn() {
-        eprintln!(
+        crate::elog!(
             "Error: Failed to run hook {:?} for {:?}: {}",
-            hook, wallpaper, e
+            hook,
+            wallpaper,
+            e
         );
     }
 }
@@ -494,7 +513,7 @@ pub fn spawn_thumbnail_worker(
                     match ensure_poster(&source, &cache_dir) {
                         Ok(poster) => Some(poster),
                         Err(e) => {
-                            eprintln!("Error: failed to extract poster for {:?}: {}", source, e);
+                            crate::elog!("Error: failed to extract poster for {:?}: {}", source, e);
                             None
                         }
                     }
@@ -524,35 +543,39 @@ pub fn spawn_thumbnail_worker(
                             match ops::jpegsave_with_opts(&resized, &tmp_str, &save_opts) {
                                 Ok(()) => {
                                     if let Err(e) = std::fs::rename(&tmp, &thumb) {
-                                        eprintln!(
+                                        crate::elog!(
                                             "Error: failed to finalize thumbnail {:?}: {}",
-                                            thumb, e
+                                            thumb,
+                                            e
                                         );
                                         let _ = std::fs::remove_file(&tmp);
                                     }
                                 }
                                 Err(e) => {
-                                    eprintln!(
+                                    crate::elog!(
                                         "Error: libvips failed to save thumbnail for {:?}: {}",
-                                        source, e
+                                        source,
+                                        e
                                     );
                                     let _ = std::fs::remove_file(&tmp);
                                 }
                             }
                         }
                         Err(e) => {
-                            eprintln!(
+                            crate::elog!(
                                 "Error: libvips failed to generate thumbnail for {:?}: {}",
-                                source, e
+                                source,
+                                e
                             );
                         }
                     }
                 }
             }
             if let Err(e) = result_tx.send_blocking((source.clone(), thumb)) {
-                eprintln!(
+                crate::elog!(
                     "Error: Failed to send thumbnail result for {:?}: {}",
-                    source, e
+                    source,
+                    e
                 );
             }
         }
