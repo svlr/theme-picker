@@ -1,122 +1,138 @@
-# **theme-picker**
+# theme-picker
 
-An ultra-fast, native GTK4 wallpaper picker with a paginated thumbnail grid, keyboard/mouse navigation, and hook scripts for applying themes.  
-Starting from **v2.0.0**, the application utilizes native **libvips C-bindings (FFI)** instead of spawning external CLI processes. This brings near-instant, asynchronous thumbnail generation directly in-memory, keeping the binary size under **860 KB** and memory usage minimal.
+A fast, native GTK4 wallpaper and theme picker. It shows a paginated grid of
+thumbnails, lets you navigate by keyboard or mouse, and runs a hook script to
+apply the selected wallpaper however you like.
 
-## **Supported Formats**
+Thumbnails are generated asynchronously in-process via libvips (FFI). Video
+wallpapers are supported by extracting a still frame in-process via libav
+(ffmpeg FFI), which is used both for the grid preview and as the color-palette
+source for your hook.
 
-To ensure maximum performance and compatibility with wallpaper-setter backends, the scanner is strictly limited to:
+## Features
 
-* .png, .jpg, .jpeg, .webp
+- Paginated thumbnail grid that reflows live on window resize and fullscreen
+- Keyboard and mouse navigation, mouse-wheel paging
+- Favorites, stored as a separate view
+- Image wallpapers: png, jpg, jpeg, webp
+- Video wallpapers: mp4, webm, mkv (optional, off by default)
+- Theme application delegated entirely to a user hook script
 
-## **Dependencies**
+## Dependencies
 
-### **Build-time (System Packages)**
+Build and runtime require libvips, GTK4 and ffmpeg development libraries plus
+pkg-config. They are linked into the binary like any FFI dependency; there is
+no external command to configure.
 
-To compile the FFI bindings, you need the libvips development headers and pkg-config installed on your system:
+Arch Linux
 
-* **Arch Linux:**  
-  Bash  
-  sudo pacman \-S libvips pkgconf gtk4
+    sudo pacman -S libvips gtk4 ffmpeg pkgconf
 
-* **Debian / Ubuntu:**  
-  Bash  
-  sudo apt install libvips-dev pkg-config libgtk-4-dev
+Debian / Ubuntu
 
-* **Fedora:**  
-  Bash  
-  sudo dnf install vips-devel pkgconf-pkg-config gtk4-devel
+    sudo apt install libvips-dev libgtk-4-dev libavcodec-dev libavformat-dev \
+        libavutil-dev libswscale-dev pkg-config
 
-### **Rust Dependencies (Cargo.toml)**
+Fedora
 
-Ini, TOML  
-\[dependencies\]  
-gtk4 \= { version \= "0.9", features \= \["v4\_10"\] }  
-glib \= "0.20"  
-walkdir \= "2.5"  
-sha2 \= "0.10"  
-serde \= { version \= "1.0", features \= \["derive"\] }  
-toml \= "0.8"  
-async-channel \= "2.3"  
-libvips \= "2.3.0"
+    sudo dnf install vips-devel gtk4-devel ffmpeg-devel pkgconf-pkg-config
 
-### **Runtime**
+## Install
 
-* A hook script that applies the selected wallpaper (example below).
+    cargo install --git https://github.com/SvlR/theme-picker
 
-## **Build**
+Or build from a clone:
 
-Clone and build:
+    git clone https://github.com/SvlR/theme-picker
+    cd theme-picker
+    cargo build --release
 
-Bash  
-git clone https://github.com/svlr/theme-picker  
-cd theme-picker  
-cargo build \--release
+The binary is at `target/release/theme-picker`.
 
-The optimized, stripped binary will be located at target/release/theme-picker.  
-Or install directly via Cargo (make sure you have build dependencies installed):
+## Usage
 
-Bash  
-cargo install \--git https://github.com/svlr/theme-picker
+Run with no arguments to launch the picker. A few flags are available:
 
-## **Configuration**
+    theme-picker --paths      Print resolved config, cache and favorites locations
+    theme-picker --help       Show help
+    theme-picker --version    Show version
 
-Config file location: \~/.config/theme-picker/config.toml
+## Configuration
 
-| Parameter | Description |
-| :---- | :---- |
-| wallpaper\_dir | Directory scanned for wallpapers (top level only) |
-| thumb\_cache\_dir | Where generated thumbnails are cached |
-| drivers.image | Enable/disable image wallpapers |
-| drivers.video | Enable/disable video wallpapers (routing exists, unused by default) |
-| hooks.image | Script run when an image wallpaper is selected |
-| hooks.video | Script run when a video wallpaper is selected (optional) |
+Config file: `~/.config/theme-picker/config.toml`
+
+| Key | Description |
+| --- | --- |
+| wallpaper_dir | Directory scanned for wallpapers (top level only) |
+| thumb_cache_dir | Where generated thumbnails and video posters are cached |
+| drivers.image | Enable image wallpapers |
+| drivers.video | Enable video wallpapers (off by default) |
+| hooks.image | Script run when an image wallpaper is applied |
+| hooks.video | Script run when a video wallpaper is applied |
 
 Example:
 
-Ini, TOML  
-wallpaper\_dir \= "/home/user/Pictures/Wallpapers"  
-thumb\_cache\_dir \= "/home/user/.cache/theme-picker/thumbs"
+    wallpaper_dir = "/home/user/Pictures/Wallpapers"
+    thumb_cache_dir = "/home/user/.cache/theme-picker/thumbs"
 
-\[drivers\]  
-image \= true  
-video \= false
+    [drivers]
+    image = true
+    video = false
 
-\[hooks\]  
-image \= "/home/user/.config/theme-picker/set-theme.sh"  
-\# video \= "/home/user/.config/theme-picker/set-theme-video.sh"
+    [hooks]
+    image = "/home/user/.config/theme-picker/set-theme.sh"
+    # video = "/home/user/.config/theme-picker/set-theme-video.sh"
 
-## **Hook script**
+## Hooks
 
-A hook is any executable that receives the wallpaper's path as its first argument and applies it however you like (set the wallpaper, regenerate a color scheme, reload bars/terminals, etc). It's called on click or on Enter, without waiting for it to finish.  
-Example for Hyprland \+ hyprpaper \+ matugen:
+A hook is any executable that applies a wallpaper. It is spawned on apply and
+not waited on. The program itself knows nothing about your compositor or
+wallpaper backend; that logic lives entirely in the hook.
 
-Bash  
-\#\!/usr/bin/env bash  
-set \-euo pipefail
+Image hooks receive one argument:
 
-IMG="${1:?Usage: set-theme \<path-to-image\>}"
+    $1   wallpaper path
 
-if \[\[ \! \-f "$IMG" \]\]; then  
-    echo "set-theme: file not found: $IMG" \>&2  
-    exit 1  
-fi
+Example for Hyprland with hyprpaper and matugen:
 
-MONITOR="$(hyprctl activeworkspace \-j | jq \-r '.monitor')"  
-if \[\[ \-z "$MONITOR" || "$MONITOR" \== "null" \]\]; then  
-    echo "set-theme: failed to detect active monitor" \>&2  
-    exit 1  
-fi
+    #!/usr/bin/env bash
+    set -euo pipefail
+    IMG="$1"
+    MONITOR="$(hyprctl activeworkspace -j | jq -r '.monitor')"
+    hyprctl hyprpaper wallpaper "${MONITOR},${IMG},cover"
+    matugen image "$IMG"
 
-hyprctl hyprpaper wallpaper "${MONITOR},${IMG},cover"  
-matugen image "$IMG"  
-"$HOME/.config/waybar/scripts/launch.sh"
+Video hooks receive two arguments:
 
-## **Controls**
+    $1   video path
+    $2   extracted poster (a JPEG still frame)
+
+The poster path is also printed to the terminal. Use `$2` as the palette
+source, since video files are not valid input for image tools. The player
+(mpvpaper, swww, and so on) and stopping a previous instance are the script's
+responsibility:
+
+    #!/usr/bin/env bash
+    set -euo pipefail
+    VIDEO="$1"
+    POSTER="$2"
+    # stop any previous player, then start your chosen one with "$VIDEO"
+    matugen image "$POSTER"
+
+An image hook should also stop any running video player, otherwise it keeps
+playing under the new static wallpaper.
+
+## Controls
 
 | Key | Action |
-| :---- | :---- |
-| ← → ↑ ↓ | Move selection, cross page boundaries at the edges |
+| --- | --- |
+| Arrow keys | Move selection, cross page boundaries at the edges |
 | Enter | Apply selected wallpaper |
-| Escape | Close window |
+| F | Toggle favorite |
+| Tab | Switch between All and Favorites |
 | Mouse wheel | Change page |
+| Escape | Close window |
+
+## License
+
+GPL-3.0-only.
