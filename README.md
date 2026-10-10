@@ -3,7 +3,7 @@
 A fast, native GTK4 wallpaper and theme picker. Pick a wallpaper from a
 thumbnail grid; everything that happens next is up to you.
 
-![demo](docs/demo.gif)
+<img src="https://github.com/user-attachments/assets/9e36a84d-26bb-4657-b6a3-bcdf6e440a61" width="820" alt="theme-picker" />
 
 ## Why another one
 
@@ -40,6 +40,8 @@ the integration layer, and it's yours.
 - Thumbnails generated asynchronously in-process via libvips (FFI)
 - Video posters extracted in-process via libav — no shelling out to ffmpeg
 - Theme application delegated entirely to a user hook script
+
+<img src="https://github.com/user-attachments/assets/4d1a479b-6b37-4c1a-901e-b6e46ca653b9" width="820" alt="grid reflowing on window resize" />
 
 ## Dependencies
 
@@ -123,6 +125,8 @@ image = "/home/user/.config/theme-picker/set-theme.sh"
 A hook is any executable that applies a wallpaper. It is spawned on apply
 and not waited on. The program itself knows nothing about your compositor
 or wallpaper backend; that logic lives entirely in the hook.
+
+<img src="https://github.com/user-attachments/assets/de1052b5-e223-4543-b470-71fd5becff63" width="720" alt="palette applied across the desktop" />
 
 ### Image hooks
 
